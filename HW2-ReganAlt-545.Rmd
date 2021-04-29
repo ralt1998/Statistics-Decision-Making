@@ -1,0 +1,354 @@
+---
+title: "HW2-ReganAlt-545"
+author: "Regan Alt"
+date: "3/22/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### Set working directory: 
+```{r, echo=FALSE}
+#load knitr library
+library(knitr)
+# load tidyverse
+require(tidyverse)
+# set working directory to source file location
+library("rstudioapi")   
+setwd(dirname(getActiveDocumentContext()$path)) 
+
+```
+
+### Question 1: What is the different between doing a census and taking a sample?
+##### The difference between conducting a census versus taking a sample is that a census is factual data derived from the entire population of a given area. In this case it is every citizen of the United States in 2010. On the other hand, a sample is just a given portion or subset of the overall population. A sample is meant to be an accurate representation of the larger population, thus analyses based on samples are not perfectly accurate, and are thus more estimations of the variables. 
+
+### Question 2:
+#### (A) There are 50 states, so why are there more than 50 rows in the data set?
+##### Even though there are 50 states in the United States, there are 55 rows of data here because the dataset takes into account Puerto Rico and Washington DC, even though these territories are not officially recognized as states. Additionally, the first 3 rows in the dataset are also counted, even though they contain column names and other values we are not using for this analysis.
+```{r}
+ # load file “PEP 2018 PEPANNRES with ann.csv”
+population_data <- read_delim("PEP_2018_PEPANNRES/PEP_2018_PEPANNRES_with_ann.csv", col_names=TRUE, delim=",")
+
+# format population data
+# delete first row because data does not begin until line 4 (?)
+population_data <- population_data[-1,]
+#Select and rename the columns
+pop2018 <- population_data[c("GEO.display-label", "rescen42010", "respop72018")]
+pop2018 <- pop2018 %>% rename(state = "GEO.display-label", res2010="rescen42010", pop2018="respop72018")
+pop2018 %>% names()
+# change the datatype of the columns res2010 and pop2018 to integer
+pop2018 <- pop2018 %>% mutate(res2010 = as.numeric(res2010), pop2018 = as.numeric(pop2018))
+
+```
+#### (B) What is the resident population of the U.S. according to the 2010 census? Which geographies are included/excluded from this total?
+```{r}
+# There is no missing data
+pop2018.rectangle <- pop2018 %>% drop_na()
+pop2018.rectangle 
+
+#delete rows for United States, District of Columbia, and Puerto Rico so there are 50 states
+pop2018_clean <- pop2018[-c(1, 10, 53),]
+pop2018_clean
+
+#Make a vector of the clean population data in 2010 
+sum_2010 <- pop2018_clean$res2010
+sum_2010
+
+#use updated pop2018 for remainder of analysis 
+pop2018 <- pop2018_clean
+
+#SUMMARIZE All Values in 2010 to get total USA population
+sum(pop2018$res2010, na.rm = FALSE)
+
+```
+##### The resident population of the United States in 2010 was around 308143815 people. The official 50 federal states in the USA are incuded in this total, while the people residing in the geographies formerly listed under the column 'State' such as 'United States', 'District of Columbia' and 'Puerto Rico' are not included in this total. 
+
+#### (c) Calculate the percent change of the total resident population between the 2010 census and 2018. How much has the population grown? Once you’ve answered this question, remove the res2010 column from the data set.
+```{r}
+#Sum of 2010 population
+total2010 <- sum(pop2018$res2010, na.rm = FALSE)
+total2010
+#Sum of 2018 population
+total2018 <- sum(pop2018$pop2018, na.rm = FALSE)
+total2018
+#Difference between 2018 and 2010 populations
+total2018-total2010
+#Total percent change from 2010 to 2018 formula
+percent_change <- ((total2018-total2010)/total2018)
+percent_change
+
+```
+##### The percent change in USA population from 2010 to 2018 was about a 5.6% increase. Overall, the population increased by 18,321,164 people.
+
+###### Remove the res2010 column from the data set.
+```{r}
+pop2018 <- pop2018[c("state", "pop2018")]
+pop2018 %>% names()
+```
+### Question 3:
+######  Upload the 2010 data file into R. This file has some extra bits, so the arguments ski pand n.max in the read excel() function from the package readxl may be useful. Keep the columns STATE; APPORTIONMENT POPULATION (APRIL 1, 2010); and APPORTIONED REPRESENTATIVES BASED ON 2010 CENSUS. Rename them state; appor2010; and rep2010
+```{r}
+# load ApportionmentPopulation2010.xls”
+# load tidyverse
+require(tidyverse)
+library(readxl)
+originalpop2010 <-read_excel("PEP_2018_PEPANNRES/ApportionmentPopulation2010.xls", skip = 8, n_max=52)
+# delete columns and rows that are not needed
+pop2010 <- originalpop2010[,c(-3,-5, -6)]
+pop2010 <- pop2010[c(-1, -2),]
+# rename columns
+pop2010 <- pop2010[c("STATE", "(APRIL 1, 2010)", "2010 CENSUS")]
+pop2010 <- pop2010 %>% rename(state = "STATE", appor2010 = "(APRIL 1, 2010)", rep2010 = "2010 CENSUS")
+pop2010 %>% names()
+
+# change the datatype of the columns appor2010 and rep2010 to integer
+pop2010 <- pop2010 %>% mutate(appor2010 = as.numeric(appor2010), rep2010 = as.numeric(rep2010))
+```
+#### (A) Calculate the following summary statistics for the 2010 census population values and put them into an html: minimum, maximium, mean, median, and standard deviation.
+##### Minimum Apportionment Population for 2010 Census equals 568,300 citizens.
+```{r}
+min.appor = min(pop2010$appor2010)
+```
+##### Maximum Apportionment Population for 2010 Census equals 37,341,989 citizens.
+```{r}
+max.appor = max(pop2010$appor2010)
+```
+##### Mean Apportionment Population for 2010 Census equals 6,183,669 citizens per state.
+```{r}
+mean.appor = mean(pop2010$appor2010)
+```
+##### Median Apportionment Population for 2010 Census equals 4,452,284 citizens per state.
+```{r}
+median.appor = median(pop2010$appor2010)
+```
+##### Standard Deviation of Apportionment Population for 2010 Census equals 6,869,559 citizens.
+```{r}
+sd.appor = sd(pop2010$appor2010)
+```
+# Summary Statistics in HTML Table
+```{r}
+# put the different stats in a table
+stats.summary <- c(min.appor,max.appor,mean.appor,median.appor,sd.appor)
+names(stats.summary) <- c("Min.", "Max.", "Mean", "Median", "Std.")
+kable(stats.summary) 
+```
+#### (B) Which state has the largest population? Which has the smallest? Where does New York fall into the ranking of population size?
+##### The state with the largest population is California. 
+```{r}
+l <- which.max(pop2010$appor2010)
+states <- pop2010$state
+states[l]
+```
+##### The state with the smallest population is Wyoming.
+```{r}
+s <- which.min(pop2010$appor2010)
+states <- pop2010$state
+states[s] 
+```
+##### New york has 19,421,055 citizens, and is ranked as the third most populous state in the United States, behind California and Texas.
+```{r}
+#New York Population: 
+nyrank1 <- pop2010 %>% filter(state=="New York")
+nyrank1
+# calculate the rank of each state
+pop2010$rank <- 51-rank(pop2010$appor2010)
+#calculate where New York falls in total state population ranking
+nyrank <- pop2010 %>% filter(state=="New York") %>% select(rank)
+nyrank
+```
+### Question 4:
+###### Create two histograms: (a) 2010 apportionment population and (b) log of the 2010 apportionment population (log always means natural log in statistics). Describe the shape of both distributions.
+
+#### (A) Histogram for 2010 Apportionment Population 
+```{r}
+# load ggplot library
+library(ggplot2)
+
+#create a vector of apportionment population in 2010
+apporpop2010 <- pop2010$appor2010
+apporpop2010
+#Plot theme settings 
+theme.info <- theme(plot.title = element_text(size=10, hjust=0.5),
+                    axis.title = element_text(size=8),
+                    axis.text = element_text(size=8)
+                    )
+
+#To ensure the population data is not in scientific notation
+options(scipen=999)
+format(summary(apporpop2010), big.mark = ",") # using big.mark to add commas
+#apporpop histogram:
+pop2010 %>%ggplot(aes(apporpop2010)) +
+  geom_histogram(bins=15, color="black", fill="cadetblue") +
+  ggtitle("Histogram of 2010 USA Apportionment Populations") +
+  labs(x="state population")+
+  theme.info
+```
+
+#### (B) Histogram for Log of 2010 Apportionment Population
+```{r}
+#need log of appor2010 population data
+apporpop_log <- log(apporpop2010)
+apporpop_log
+
+#log of apporpop histogram
+pop2010 %>% ggplot(aes(apporpop_log)) +
+  geom_histogram(bins=15, color="black", fill="cadetblue") +
+  ggtitle("Histogram of Log of 2010 USA Apportionment Populations") +
+  labs(x="state population (millions)")+
+  theme.info
+```
+###### In regards to the shapes of the distributions, the histogram with the original apportionment 2010 population data is very skewed to the right due to the states with the highest populations (>15million citizens) such as California, Texas, New York and Florida who are outliers compared to the rest of the states that are centered around the mean population of about 6 million. Regarding the distribution of the histogram for the log of the 2010 apportionment data, the plot is nearly bell-shaped. Since the data is quite varied and skewed-right, this log histogram portrays a more equally visual representation of population distribution among the 50 states. 
+
+### Question 5:
+#### Looking at your histograms in Question 4, is the mean or the median a better measure for center in each case? Justify your answer.
+```{r}
+# Mean Apportionment Population for 2010 Census equals 6,183,669 citizens per state.
+mean(pop2010$appor2010)
+#Median of log of 2010 apportionment population data equals 15.30867
+median(apporpop_log)
+```
+
+###### In regards to the "Histogram of the 2010 USA Apportionment Populations", which is very skewed-right, the mean is a better measure of looking for the center. This is because after creating a histogram based on the whole number population data, the distribution will naturally gravitate around the mean. This is clearly represented in this case, since the majority of the bars are centered around the mean of 6,183,669 people, and the states with more than 15 million are skewed right. On the other hand, the histogram derived from the log of the total apportionment population for each state is better represented by looking at the median for the center. This is clear since the majority of the graph is centered around the median log value for the apportionment population size of 15.30.  
+
+### Question 6:
+##### Create scatter plots with 2010 apportionment population on the x-axis and number of House members on the y-axis
+#### (A) Scatterplot for 2010 apportionment population
+```{r}
+#apporpop2010 = vector for 2010 apportionment population 
+#rep2010 = number of house members
+pop2010 %>% ggplot(aes(x=apporpop2010, y=rep2010)) +
+  geom_point(shape=19, color="forestgreen") +
+  ggtitle("Scatterplot for 2010 Apportionment Population and Number of House Members") +
+  labs(x="Apportionment Population", y="Number of House Representatives") +
+  theme.info
+```
+### (B) Scatterplot for Log of 2010 Apportionment Population
+```{r}
+#apporpop_log = vector of log for 2010 apportionment population
+#rep2010 = number of house members
+pop2010 %>% mutate(apporpop2010 = log(apporpop2010),
+                   apporpop2010 = log(rep2010)) %>%
+  ggplot(aes(x=apporpop2010, y=rep2010)) +
+  geom_point(shape=19, color="forestgreen") +
+  ggtitle("Scatterplot for 2010 Apportionment Population and Number of House Members") +
+  labs(x="Apportionment Population", y="Number of House Representatives") +
+  theme.info
+
+```
+#### Which plot shows a clearer relationship between the two variables? Can we use correlation, r, to represent the relationships in either graph? Justify your answers (COME BACK).
+##### I believe the second scatterplot portraying the total number of representatives in Congress per state based on the log value of state population portrays a clearer relationship between the two variables. This graph is similar in shape to the first plot in that it is upward slowing with the outliers of the states with the highest populations clearly visible. Since this graph is based on log values, the points are more spread out. This creates a better visualization of how states with more people are also apportioned more representatives in Congress. 
+
+### Question 7.
+##### Merge the 2018 population data and the 2010 apportionment data into a single R object called data.x.
+```{r}
+#find common variable on which to merge the data 
+#the common variable of the data sets already in R is the column "state"
+#csv file  -> pop2018 / excel file -> pop2010
+#to see the differences between the data sets
+setdiff(pop2018$state, pop2010$state)
+setdiff(pop2010$state, pop2018$state)
+#there is no missing or different data in either dataset 
+
+##the common variable of the data sets already in R is the column "state"
+# Using left_join(x,y) to use "state" to match the two tibbles 
+# x axis = pop2010, y axis = pop2018
+# joining the data on the "state" column
+data.x <- pop2018 %>% left_join(pop2010 %>% select(state, appor2010), by="state")
+```
+#### Estimate what the number of House members for each state would be in 2020 based on your 2018 population data using the equal proportions method. 
+```{r}
+# Using the equal proportions method - Estimated number of House members for each state 
+# Step 1) Calculate a vector of values of the formula 1/sqrt(n(n − 1)) where n goes from 2 to 60 and call it denom. 
+denom <- 1/sqrt(c(2:60)*c(1:59))
+# Step 2) Multiply each value of denom in Step 1 by each state’s 2018 population.
+pvals <- t(outer(data.x$pop2018, denom))
+colnames(pvals) <- data.x$state
+rownames(pvals) <- c(2:60)
+# Step 3) Create a data set with the priority values as one column and the corresponding state names as a second column.
+priority.values <- as.data.frame(as.table(pvals))
+colnames(priority.values) <- c("n", "state", "pval")
+# Step 4) Sort your data set in Step 3 in descending order by priority value so that the highest priority values are on top.
+r385 <- priority.values %>% top_n(385)
+# Step 5) frequency table of initial number of representatives per state
+freq <- r385 %>% count(state)
+freq 
+# Step 6) & 7) Merge your frequency table with data.x. Then, replace all NA counts with 0 using the function replace na(). Add 1 to each state representative count so that each state has at least one representative and the total number of representatives equals 435.
+data.x <- data.x %>% left_join(freq, by="state") %>% mutate(n = replace_na(n, 0) + 1)
+# add newly estimated representatives back to the original data
+data.x <- data.x %>% left_join(pop2010 %>% select(state, rep2010), by = "state")
+```
+#### A) Make an html table with the three states that currently have the highest number of representatives
+```{r}
+# the three highest representatives, based on the new calculation
+highest3 <- data.x %>% top_n(3, n)
+highest3$state
+# calculate the current percentage
+sum(highest3$n) / sum(data.x$n) # about 27%
+# for the current representatives:
+highest3.current <- data.x %>% top_n(3, rep2010)
+highest3.current$state 
+#New York is included because it has the same amount of Representatives as Florida
+
+# n = estimated number of 2020 representatives per state
+library(knitr)
+kable(highest3) 
+```
+##### What fraction of the total number of representatives do these 3 states comprise?
+###### These states (California, Florida and Texas) comprise nearly 27 percent of the total number of representatives in Congress. 
+
+##### Currently, do the same states have the highest number of representatives?
+###### Yes, currently the same states (California, Texas, Florida) do have the highest number of representatives. The only difference is that based on the 2010 census, Florida and New York had the same amount of representatives, creating technically 4 states who had the top representation in Congress. Based on our estimates from the 2020 data, however, California, Texas and Florida remain as having the top three states with the highest amount of representation, while New York has decreased by one. 
+
+#### B)  How many states currently have only a single House of Representatives member?
+```{r}
+onerep <- data.x %>% filter(rep2010 == 1) # all of these still get only one representative with out estimate
+dim(onerep)[1]
+```
+##### Currently, 7 states have only a single House of Representatives member.
+
+### Question 8: 
+##### Calculate the following difference: (estimated 2020 house reps − 2010 house reps) as a new column in data.x and convert it to a character data type. Call this column difference. Make an html frequency table of the differences column.
+```{r}
+data.x <- data.x %>% mutate(diff = as.character(n - rep2010))
+# make table of the difference between Estimated 2020 House Reps and 2010 House Reps
+# Column named "n" represents number of states
+kable(data.x %>% count(diff))
+```
+
+### Question 9: 
+#### (A) Make a map of the US color-coded by the differences column. Then answer the following questions.
+```{r}
+require(tidyverse)
+require(gridExtra)
+require(usmap)
+require(ggplot2)
+# plot_usmap(pop2010, values="rep2010", regions = "states") +  labs(title = "U.S. States", subtitle = "This is a blank map of the United States.") + theme(panel.background=element_blank())
+# convert state names to fips code
+# rownames(pop2010) <- fips(pop2010$state)
+# data.x <- %>% mutate(fips=substr(fips, start=2, stop=3))
+
+### to plot data on map
+plot_usmap(regions="states", data=data.x,
+           values = "diff") + 
+  #for a gradient color
+  #scale_fill_gradient(name = "number of reps/state",
+  #                    low = "#56B1F7", high = "#132B43") +
+  ggtitle("Map of Estimated Difference in Representatives per State 2010 - 2020") +
+  # for the aesthetic color-coding information
+  labs(fill="difference in reps (2010 to 2020",
+       subtitle="(Source:  'ApportionmentPopulation2010.xls' & PEP 2018 PEPANNRES with ann.csv") +
+  theme(legend.position = "right",
+        plot.title = element_text(size=14, hjust =0.5),
+        plot.subtitle = element_text(size=12, hjust=0.5))
+```
+
+#### (B) Describe what you see in the map.
+##### Based on the generated map of the estimated change in apportioned representatives per state between 2020 and 2010, a few states in the Midwest and New England, including New York have witnessed a decrease in their populations and thereby lost one representative in the House. Other states such as North Carolina, Florida, Oregon, Colorado and Arizona have seemingly experienced a rise in population over the last decade. Texas in particular has exeperienced significant populaiton growth, and thus gained 2 new representatives in Congress. Overall, the rest of the country has neither gained nor lost a representative, as illustrated by the green color. 
+
+
+#### (C) Various research/media organizations have made their own predictions about distribution of the House seats. Pick one and compare your results with their predictions. Include links to any references you use.
+##### The Population Reference Bureau (PRB) predicted in February of 2020 that "Arizona, Colorado, Florida, North Carolina and Oregan" would win 1 representative, while Texas will gain 2. This is very much in line with my predictions which according to the map had the same states winning 1 or 2 representatives, the only state where our research differentiates is in my map New Mexico also wins 1 representative. Additionally, the PRB also predicted similar to my map that, "Illinois, Michigan, Minnesota, New York, Pennsylvania, Rhode Island, and West Virginia" would also lose 1 representative. I had the exact same results. (https://www.prb.org/u-s-house-seats-are-shifting-south-and-west-based-on-population-changes/)
+
+#### (D) Describe one way we could improve our analysis.
+##### One way we could improve our analysis is by incorporating data based on political, economic, or other major events such as a global pandemic that have inspired people to move around the United States. This would give more depth to the analysis, and provide an explanation for why some states have lost or gained representation in Congress over others. 
