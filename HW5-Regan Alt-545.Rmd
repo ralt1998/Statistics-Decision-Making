@@ -1,0 +1,279 @@
+---
+title: "HW5-Regan Alt-545"
+author: "Regan Alt"
+date: "5/6/2021"
+output: html_document
+---
+#### download packages
+```{r, echo=FALSE}
+#require tidyverse
+require(tidyverse)
+require(zoo)
+require(gridExtra)
+# install pwr package first
+require(pwr)
+require(ggplot2)
+```
+
+## Question 1:
+
+```{r}
+#import data
+data.x <- read_delim("asset_data.txt", col_names=TRUE, delim=",")
+data.x
+
+# extract only data where fed funds rate is available (i.e. weekly data)
+data.x <- data.x %>% filter(!is.na(fed.rate))
+```
+### What is the start and end date of the reduced data set for fed.rate?
+```{r}
+print(data.x$date[1]) # start date
+print(tail(data.x$date, n=1)) # end date
+```
+#### The start date for the reduced data set for the fed.rate is January 8th, 2003 and the end date is October 29th, 2014. 
+
+###  Graph the federal funds interest rate as a time series. Describe what you see in the plot and relate it briefly to the most recent financial crisis.
+```{r}
+plotfed <- ggplot(data.x, aes(x=date)) +
+  geom_line(aes(y=fed.rate))
+plotfed
+```
+#### Observation: Based on the plot, it appears the federal funds rate  steadily increased until the 2008 financial crisis. Since then it has steadily plateaued at it's lowest rate. 
+
+## Question 2:
+#### The training data will be used to compute our portfolio weights and our test set will be used to evaluate our portfolio. Make two separate tibbles: 
+```{r}
+require(lubridate)
+# train - test split
+# (a) the training set should contain all observations before 2014
+data.x.train <- data.x %>% filter(year(date) < 2014)
+# (b) the test set should contain all observations in 2014
+data.x.test <- data.x %>% filter(year(date) >= 2014)
+# get number of observations
+print(nrow(data.x.train))
+print(nrow(data.x.test))
+```
+#### There are 570 observations in the training set and 43 observations in the testing set. 
+
+## Question 3: 
+#### Add both sets of returns to your training set tibble. These returns are also called total returns. Construct a single time series plot with the returns for both assets plotted
+```{r}
+# convert fed rate into decimal for both sets
+data.x.train <- data.x.train %>% mutate(fed.rate = fed.rate/100)
+
+# calculate returns
+data.x.train <- data.x.train %>% mutate(ret.spy = c(NA, diff(close.spy)/close.spy[-length(close.spy)]),
+                                        ret.tlt = c(NA, diff(close.tlt)/close.tlt[-length(close.tlt)]))
+```
+#### Construct a single time series plot with the returns for both assets plotted. Add a dotted, horizontal line at y = 0 to the plot. Compare the two returns series.
+```{r}
+# plot returns
+plot(data.x.train$date, data.x.train$ret.spy)
+abline(h=0.0, lty=2)
+plot(data.x.train$date, data.x.train$ret.tlt)
+abline(h=0.0, lty=2)
+```
+### . Compare the two returns series. What do you see? 
+#### Observation: Based on the two time series plots, the S&P500 returns appear to be more correlated along the horizontal line at y=0, whereas the long term treasury returns appear to have more variation along the line within the same amount of time. 
+
+## Question 4:
+#### The Sharpe ratio calculation assumes that returns are normally distributed. Construct two normal quantile plots, one for training set returns of each asset. Is this assumption satisfied? Justify your answer.
+### Normal Quantile Plot for Closing Price of S&P500 Returns Training Set
+```{r}
+# define theme.info
+theme.info <- theme(plot.title = element_text(size=14, hjust=0.5),
+                    axis.title = element_text(size=12),
+                    axis.text.y=element_text(size=12),
+                    axis.text.x = element_text(size=12),
+                    legend.title=element_blank())
+
+
+# normal quantile plot of Closing Prices S&P500
+spyqqplot <- data.x.train %>% ggplot(aes(sample=ret.spy)) +
+  stat_qq() +
+  stat_qq_line() +
+  ggtitle("Normal Quantile Plot\nof Closing Price S&P500") +
+  scale_y_continuous(name="closing price ($)", breaks=seq(500, 3000, by=500), 
+                     labels=paste("$", c(500, "1,000", "1,500", "2,000", "2,500", "3,000"), sep="")) +
+  theme.info
+spyqqplot
+```
+### Normal Quantile Plot for Closing Price of LT Treasury Bonds Returns Training Set
+```{r}
+tltqqplot <- data.x.train %>% ggplot(aes(sample=ret.tlt)) +
+  stat_qq() +
+  stat_qq_line() +
+  ggtitle("Normal Quantile Plot\nof Closing Price for LT Treasury Bond ETF") +
+  scale_y_continuous(name="closing price ($)", breaks=seq(500, 3000, by=500), 
+                     labels=paste("$", c(500, "1,000", "1,500", "2,000", "2,500", "3,000"), sep="")) +
+  theme.info
+tltqqplot
+```
+#### Yes, based off the two normal quantile plots for the S&P500 and long term treasury bond returns, the Sharpe ratio assumption that returns are normally distributed appears to be satisfied. This is because in both plots the majority of the dots are very close to the 45 degree reference line. 
+
+## Question 5: 
+#### Compute the correlation between the S&P500 and long term treasury bond returns in the training set and interpret it
+```{r}
+# compute correlation
+cor(data.x.train$ret.spy, data.x.train$ret.tlt, use="complete.obs")
+```
+##### The S&P500 and long term treasury bond returns are negatively correlated, this means that theoretically as the S&P500 is gaining, Treasury bonds are more likely to lose value and vice versa. 
+
+#### Compute a rolling-window correlation as follows: Compute the correlation between the two asset returns only using the first 24 weeks of data (i.e., weeks 2 to 25)
+```{r}
+# compute rolling correlations
+require(zoo)
+data.x.train$rolling.cor <- c(rep(NA, 23), rollapply(data.x.train %>% select(ret.spy, ret.tlt), width=24, function(x) cor(x[,1], x[,2], use="everything"), by.column=FALSE))
+
+```
+
+#### Make a time series plot of the rolling window correlation with each point plotted on the last day of the window.
+```{r}
+# plot rolling correlation
+plot(data.x.train$date, data.x.train$rolling.cor)
+abline(h=0.0, lty=2)
+```
+### Is the correlation or rolling-window correlation a better way to describe the relationship between these two assets?
+####  The rolling-window correlation appear to be a better representation of the relationship between the two assets. From the rolling-window we can see that correlations vary greatly throughout the years. The first correlation simply gives a more momentary view of the overall correlation between the assets while rolling-window gives a better long-term progjection. 
+ 
+## Question 6:
+### Compute the Sharpe ratios for each asset on the training set 
+##### Step 1. Compute the excess returns, et, for each week in the data set
+##### Step 2: Convert the excess returns into an excess returns index, gt:
+##### Step 3: 
+###### Compute the number of years of data, n, by taking the number of weeks for which you have returns (i.e., number of observations in your training set minus 1)  and dividing by 52 (since there are 52 weeks in a year); therefore the number of years of data can be a fractional amount.
+##### Step 4: Compute the compounded annual growth rate, CAGR
+##### Step 5: Compute the annualized volatility, ν:
+##### Step 6:Compute the Sharpe Ratio, SR, which is the ratio of the compounded annual growth rate and the annualized volatility:
+```{r}
+# function to compute based on the steps
+comp_sharpe <- function(rt, yt) {
+  # 1 tail = everything except first value, head = everything except last
+  et <- tail(rt,-1) - head(yt, -1)/52
+  # 2 cumulative product
+  gt <- cumprod(c(100, 1 + (et)))
+  # 3
+  n <-(length(rt)-1)/52
+  # 4
+  cgar <- (tail(gt,1)/gt[1])^(1/n) -1
+  # 5
+  v <- sqrt(52)*sd(et)
+  # 6
+  sr <- cgar/v
+  
+  sr
+}
+```
+
+### Apply Sharpe function on the returns to see which is a better investment:
+```{r}
+# For the S&P500 Returns
+print(comp_sharpe(data.x.train$ret.spy, data.x.train$fed.rate))
+# For the LT Bonds Returns
+print(comp_sharpe(data.x.train$ret.tlt, data.x.train$fed.rate))
+```
+#### S&P returns appear to be better investment accoring to the Sharpe ratio since it is higher than the long term bond returns. Meaning, according to the ratio the S&P500 would have greater compounded annual growth and less annualized volatility
+
+## Question 7: 
+##### Write a function which takes the following inputs: (a) a vector of portfolio weights (call this argument x; weights are between 0 and 1), (b) a vector of returns for asset 1, (c) a vector of returns for asset 2, and (d) a vector of the corresponding weekly federal funds interest rates.
+##### The function will then do the following: for each weight value in your vector x, you will compute the Sharpe ratio for the corresponding portfolio. To obtain the returns for the portfolio, use the following equation: rt,portfolio = xrt,S&P500 + (1 − x)rt,treasury
+```{r}
+# x = a vector of portfolio weights
+# r1 = a vector of returns for asset 1
+# r2 = a vector of returns for asset 2
+# y = a vector of the corresponding weekly federal funds interest rates
+comp_sharpevector <- function(x, r1, r2, y) {
+  res <- rep(NA, length(x))
+  for (i in 1:length(x)) {
+    res[i] = comp_sharpe(x[i]*r1 + (1-x[i])*r2, y)
+  }
+  res
+}
+```
+##### Use stat function() to plot the function you just wrote. Weights between 0 and 1 should be on the x-axis and the Sharpe ration should be on the y-axis. The training set data should be used as the input for (b), (c), and (d) above.
+#### Do you see a portfolio weight that produces the maximum Sharpe ratio?
+```{r}
+# plot
+base <- ggplot() + xlim(0, 1)
+base + stat_function(fun=comp_sharpevector, xlim=c(0,1), args=list(r1=data.x.train$ret.spy, r2=data.x.train$ret.tlt, y=data.x.train$fed.rate))
+```
+### The optimal portfolio weight that produces the maximum Sharpe Ratio is around 0.60. 
+
+## Question 8: 
+#####  Using the training set, use optimize() to determine the optimum weight for each asset using the function you wrote in question 7
+#### (A) How much of the funds should be allocated to each asset? 
+#### (B) What is the Sharpe ratio of the overall portfolio? 
+#### (C) According to your analysis, is it better to invest in S&P500 only, long term treasury bonds only, or your combined portfolio?
+```{r}
+opt.res <- optimize(comp_sharpevector, interval=c(0,1), r1=data.x.train$ret.spy, r2=data.x.train$ret.tlt, y=data.x.train$fed.rate, maximum=TRUE)
+print(opt.res$maximum) # stock proportion of best portfolio
+print(opt.res$objective) # For the best Sharpe ratio
+
+```
+#### (A) 0.5958502 = the stock proportion of the best portfolio - So about 60% should be allocated to the S&P500 and 40% should be made up of long term treasury bonds. 
+#### (B) 0.3634139 = the best Sharpe ratio for the overall portfolio
+#### (C) Based on the Sharpe ratio, investing in a combined portfolio is best since it is made up of roughly 60% stocks and 40% bonds. 
+
+## Question 9:
+##### For the remainder of this assignment, we will be evaluating our portfolio using the test set data. We will be comparing three strategies: investing only in the S&P500, investing only in long term treasury bonds, and investing in the combined portfolio (computed in question 8).
+#### In your test set, convert the federal funds interest rate from percent to decimal form and compute the returns series for each of the three assets (see question 3 for more details).
+```{r}
+# Change interest rate to decimal form
+data.x.test <- data.x.test %>% mutate(fed.rate = fed.rate/100)
+# compute the returns series for each of the 3 assets
+# calculate returns
+data.x.test <- data.x.test %>% mutate(ret.spy = c(NA, diff(close.spy)/close.spy[-length(close.spy)]),
+                                        ret.tlt = c(NA, diff(close.tlt)/close.tlt[-length(close.tlt)]))
+data.x.test
+```
+##### Next, compute the excess returns index for each asset in the test set (as outlined in question 6). 
+```{r}
+# optimal SPY weight from Q8
+opt.w <- opt.res$maximum
+
+# compute returns for the different portfolios
+# Portfolio 3: SPY with optimal weight, rest in TLT
+data.x.test <- data.x.test %>% mutate(ret.p2 = ret.spy*opt.w + (1- opt.w)*ret.tlt)
+
+# like in Q6, but this time only compute excess return index
+comp_exret <- function(rt, yt) {
+  # 1 tail = everything except first value, head = everything except last
+  et <- tail(rt,-1) - head(yt, -1)/52
+  # 2 cumulative product
+  gt <- cumprod(c(100, 1 + (et)))
+  
+  gt
+}
+
+# compute and plot excess return index
+exret.p1 <- comp_exret(data.x.test$ret.spy, data.x.test$fed.rate)
+exret.p2 <- comp_exret(data.x.test$ret.tlt, data.x.test$fed.rate)
+exret.p3 <- comp_exret(data.x.test$ret.p2, data.x.test$fed.rate)
+
+# dataframe with all excess returns
+df <- data.frame(data.x.test$date,exret.p1,exret.p2,exret.p3)
+colnames(df) <- c("date", "exret.p1", "exret.p2", "exret.p3")
+
+
+```
+##### Plot the excess returns index for each asset on the same time series plot. Add a dotted, horizontal line at y = 100. Describe what you see.
+```{r}
+ggplot(df, aes(date)) +                    # basic graphical object
+  geom_line(aes(y=exret.p1), colour="red") +  # first layer= S&P500 returns
+  geom_line(aes(y=exret.p2), colour="green") + # second layer = LT Treasury Bonds Returns
+  geom_line(aes(y=exret.p3), colour="blue") + # second layer = Optimal Portfolio Weight Returns
+  geom_hline(yintercept=100)
+
+```
+#### After looking at the plot, the treasury bonds appear to perform the best, the optimized portfolio second best, and the S&P500 index the worst. The optimized portfolio appears the least risk-averse, however, whereas the S&P500 is the most risky. Although the treasury bonds performed the best, at the end they appear to be dropping in value while the other portfolios are gaining, so if the dataset accounted for more years it would be interesting to see which portfolio performed the best by the end of the decade. 
+
+## Question 10: 
+#### If you invested $100 in each asset (portfolio, all in long term treasury bonds, or all in S&P500) in the first week of January, 2014 , how much would you have at the end of the test set period for each asset in addition to the risk-free interest rate? Did your portfolio perform well in the test set?
+```{r}
+# print last value of excess return for each portfolio
+print(tail(exret.p1, 1))
+print(tail(exret.p2, 1))
+print(tail(exret.p3, 1))
+```
+## At the end of the test set period in addition to the risk-free rate, with the S&P500 returns portfolio you would gain 107.87 dollars represented by the red line. With the Long Term Treasury Bonds you would receive 116.7 dollars visualized by the green line. Lastly, with the optimized portfolio you would receive 111.63 dollars represented by the blue line. 
+## Yes, my portfolio with the optimized weight between stocks and bonds performed relatively well compared to the the other portfolios. Although the Long-Term treasury bonds had the best performance according to the returns, my optimized portfolio appears less risky and is garners only five dollars less than the treasury bond portfolio. 
